@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    const socket = io.connect('http://localhost:3000');
+    const socket = io();
    
     socket.on('move', (fen) => {
         game.load(fen);
