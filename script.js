@@ -1,84 +1,66 @@
-
-
-
+// Wait for the DOM to be fully loaded before executing code
 document.addEventListener('DOMContentLoaded', () => {
-    
-    let board = null;
-    const game = new Chess();
-    const moveHistory = document.getElementById('move-history');
-    let moveCount = 1;
-    let userColor = 'w'
-    let randomMoveTimeout = null;
-    let playerColor = null;
-    let playerRole = null;
+    let board = null; // Initialize the chessboard
+    const game = new Chess(); // Create new Chess.js game instance
+    const moveHistory = document.getElementById('move-history'); // Get move history container
+    let moveCount = 1; // Initialize the move count
+    let userColor = 'w'; // Initialize the user's color as white
 
+    // Function to make a random move for the computer
+    const makeRandomMove = () => {
+        const possibleMoves = game.moves();
+
+        if (game.game_over()) {
+            alert("Checkmate!");
+        } else {
+            const randomIdx = Math.floor(Math.random() * possibleMoves.length);
+            const move = possibleMoves[randomIdx];
+            game.move(move);
+            board.position(game.fen());
+            recordMove(move, moveCount); // Record and display the move with move count
+            moveCount++; // Increament the move count
+        }
+    };
+
+    // Function to record and display a move in the move history
     const recordMove = (move, count) => {
         const formattedMove = count % 2 === 1 ? `${Math.ceil(count / 2)}. ${move}` : `${move} -`;
         moveHistory.textContent += formattedMove + ' ';
-        moveHistory.scrollTop = moveHistory.scrollHeight;
+        moveHistory.scrollTop = moveHistory.scrollHeight; // Auto-scroll to the latest move
     };
 
+    // Function to handle the start of a drag position
     const onDragStart = (source, piece) => {
-        console.log("Player role:", playerRole);
-        // console.log("Trying to drag:", piece);
-        console.log("Current user color:", userColor);
-        if (!playerRole || playerRole === 'spectator') {
-            return false;
-        } 
+        // Allow the user to drag only their own pieces based on color
         return !game.game_over() && piece.search(userColor) === 0;
-    }
-    
+    };
 
+    // Function to handle a piece drop on the board
     const onDrop = (source, target) => {
-        console.log("Source:", source);
-        console.log("Target:", target);
         const move = game.move({
             from: source,
             to: target,
             promotion: 'q',
         });
-        console.log("Possible moves from g7:", game.moves({ square: 'g7' }));
-        console.log(move);
 
-        if (move === null) return 'snapback'
+        if (move === null) return 'snapback';
 
-
-        recordMove(move.san, moveCount);
+        window.setTimeout(makeRandomMove, 250);
+        recordMove(move.san, moveCount); // Record and display the move with move count
         moveCount++;
-        // This goes in your onDrop function after a successful move
-        const fen = game.fen();
-        socket.emit('move', fen);
-        // After sending the move...
-        // socket.emit('requestRandomMove');
+    };
 
-        
-    }
-
+    // Function to handle the end of a piece snap animation
     const onSnapEnd = () => {
-        board.position(game.fen())
-    }
-    
-    function makeRandomMove () {
-        var possibleMoves = game.moves()
-      
-        // exit if the game is over
-        if (game.game_over()) {
-            clearTimeout(randomMoveTimeout)
-            return;
-        } 
-      
-        var randomIdx = Math.floor(Math.random() * possibleMoves.length)
-        game.move(possibleMoves[randomIdx])
-        board.position(game.fen())
-      
-        randomMoveTimeout = window.setTimeout(makeRandomMove, 500)
-      }
+        board.position(game.fen());
+    };
 
+    // Configuration options for the chessboard
     const boardConfig = {
         showNotation: true,
         draggable: true,
         position: 'start',
-        onDragStart: onDragStart,
+        onDragStart,
         onDrop,
         onSnapEnd,
         moveSpeed: 'fast',
@@ -86,71 +68,39 @@ document.addEventListener('DOMContentLoaded', () => {
         snapSpeed: 100,
     };
 
-    board = ChessBoard('board', boardConfig);  
+    // Initialize the chessboard
+    board = Chessboard('board', boardConfig);
 
-    function resetGame() {
-        clearTimeout(randomMoveTimeout);
+    // Event listener for the "Play Again" button
+    document.querySelector('.play-again').addEventListener('click', () => {
         game.reset();
         board.start();
         moveHistory.textContent = '';
         moveCount = 1;
         userColor = 'w';
-    }
-    
-
-    document.querySelector('.play-again').addEventListener('click', () => {
-        resetGame();
-        socket.emit('playAgain');
     });
 
+    // Event listener for the "Set Position" button
+    document.querySelector('.set-pos').addEventListener('click', () => {
+        const fen = prompt("Enter the FEN notation for the desired position!");
+        if (fen !== null) {
+            if (game.load(fen)) {
+                board.position(fen);
+                moveHistory.textContent = '';
+                moveCount = 1;
+                userColor = 'w';
+            } else {
+                alert("Invalid FEN notation. Please try again.");
+            }
+        }
+    });
+
+    // Event listener for the "Flip Board" button
     document.querySelector('.flip-board').addEventListener('click', () => {
         board.flip();
-        // makeRandomMove();
+        makeRandomMove();
+        // Toggle user's color after flipping the board
         userColor = userColor === 'w' ? 'b' : 'w';
-    })
-
-    document.querySelector('.set-random').addEventListener('click', () => {
-        game.reset();
-        moveHistory.textContent = '';
-        randomMoveTimeout = window.setTimeout(makeRandomMove, 500)
-
-    })
-
-
-
-    const socket = io();
-   
-    socket.on('move', (fen) => {
-        game.load(fen);
-        board.position(fen);
-        const lastMove = game.history().slice(-1)[0];
-        recordMove(lastMove, moveCount);
-        moveCount++;
     });
 
-    socket.on('reset', () => {
-        resetGame();
-    });
-
-    socket.on('assignColor', (color) => {
-        playerColor = color;
-        userColor = color.charAt(0); // 'w' for white and 'b' for black
-        console.log(userColor);
-    });
-    
-    socket.on('assignRole', (role) => {
-        playerRole = role;
-        console.log(playerRole);
-    });
-    
-
-    socket.on('connect', () => {
-        console.log('Connected to the server');
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('Disconnected from the server');
-    });
-    
-    
-})
+});
