@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const moveHistory = document.getElementById('move-history'); // Get move history container
     let moveCount = 1; // Initialize the move count
     let userColor = 'w'; // Initialize the user's color as white
+    let randomMoveTimeout = null;
 
     // Function to make a random move for the computer
     const makeRandomMove = () => {
@@ -21,6 +22,22 @@ document.addEventListener('DOMContentLoaded', () => {
             moveCount++; // Increament the move count
         }
     };
+
+    function makeRandomMove2 () {
+        var possibleMoves = game.moves()
+      
+        // exit if the game is over
+        if (game.game_over()) {
+            clearTimeout(randomMoveTimeout)
+            return;
+        } 
+      
+        var randomIdx = Math.floor(Math.random() * possibleMoves.length)
+        game.move(possibleMoves[randomIdx])
+        board.position(game.fen())
+      
+        randomMoveTimeout = window.setTimeout(makeRandomMove, 500)
+      }
 
     // Function to record and display a move in the move history
     const recordMove = (move, count) => {
@@ -71,6 +88,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the chessboard
     board = Chessboard('board', boardConfig);
 
+    function resetGame() {
+        clearTimeout(randomMoveTimeout);
+        game.reset();
+        board.start();
+        moveHistory.textContent = '';
+        moveCount = 1;
+        userColor = 'w';
+    }
+
     // Event listener for the "Play Again" button
     document.querySelector('.play-again').addEventListener('click', () => {
         game.reset();
@@ -81,24 +107,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Event listener for the "Set Position" button
-    document.querySelector('.set-pos').addEventListener('click', () => {
-        const fen = prompt("Enter the FEN notation for the desired position!");
-        if (fen !== null) {
-            if (game.load(fen)) {
-                board.position(fen);
-                moveHistory.textContent = '';
-                moveCount = 1;
-                userColor = 'w';
-            } else {
-                alert("Invalid FEN notation. Please try again.");
-            }
-        }
-    });
+    // document.querySelector('.set-random').addEventListener('click', () => {
+    //     var possibleMoves = game.moves()
+      
+    //     // exit if the game is over
+    //     if (game.game_over()) {
+    //         clearTimeout(randomMoveTimeout)
+    //         return;
+    //     } 
+      
+    //     var randomIdx = Math.floor(Math.random() * possibleMoves.length)
+    //     game.move(possibleMoves[randomIdx])
+    //     board.position(game.fen())
+      
+    //     randomMoveTimeout = window.setTimeout(makeRandomMove2, 500)
+    // });
 
     // Event listener for the "Flip Board" button
     document.querySelector('.flip-board').addEventListener('click', () => {
+        console.log("FLIPPING!")
         board.flip();
-        makeRandomMove();
+        // makeRandomMove();
         // Toggle user's color after flipping the board
         userColor = userColor === 'w' ? 'b' : 'w';
     });
